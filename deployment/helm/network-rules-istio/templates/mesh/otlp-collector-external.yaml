@@ -1,0 +1,29 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.otlpGateway.enabled true) (gt (len .Values.mesh.otlpGateway.hosts) 0) -}}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: "otlp-collector-virtual-service-external"
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+    - {{ .Values.mesh.otlpGateway.name }}
+  hosts:
+  {{- toYaml .Values.mesh.otlpGateway.hosts | nindent 6 }}
+  http:
+  - route:
+    - destination:
+        host: {{ .Values.mesh.otlpGateway.otlpCollectorHost }}
+        port:
+          number: 4317
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: otlp-collector
+  namespace: istio-system
+spec:
+  host: {{ .Values.mesh.otlpGateway.otlpCollectorHost }}
+  trafficPolicy:
+    tls:
+      mode: {{ .Values.mesh.otlpGateway.tlsTrafficPolicyMode }}
+{{- end -}}

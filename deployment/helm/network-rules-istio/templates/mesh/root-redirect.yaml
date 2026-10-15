@@ -1,0 +1,25 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.virtualServices.rootRedirect.enabled true) }}
+{{/* Forwards the GET Request to the given domain to the desired destination */}}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: root-redirect
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    {{- range .Values.mesh.virtualServices.rootRedirect.hosts }}
+    - {{ . }}
+    {{- end }}
+  gateways:
+    - {{ .Values.mesh.istioGateway.name }}
+  http:
+    - match:
+        - uri:
+            exact: {{ .Values.mesh.virtualServices.rootRedirect.redirect.from }}
+          method:
+            exact: GET
+      redirect:
+        authority: {{ .Values.mesh.virtualServices.rootRedirect.redirect.to }}
+        uri: /
+        scheme: https
+{{ end }}

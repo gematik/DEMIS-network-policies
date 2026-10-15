@@ -1,0 +1,49 @@
+{{- if and (eq .Values.demis.enabled true) (eq .Values.demis.virtualServices.portalShellRootRedirect.enabled true) }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: redirect-portal-root-url-to-frontend
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+{{- range concat .Values.demis.virtualServices.portalShellRootRedirect.hosts.ti .Values.demis.virtualServices.portalShellRootRedirect.hosts.internet | uniq }}
+    - {{ . }}
+{{- end }}
+  gateways:
+    - {{ .Values.demis.virtualServices.portalShellRootRedirect.istioGatewayName }}
+  http:
+    - match:
+        - headers:
+            gateway-request:
+              exact: 'false'
+          uri:
+            exact: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}
+      redirect:
+        uri: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_redirect | default "/"}}portal/shell/
+    - match:
+        - headers:
+            gateway-request:
+              exact: 'false'
+          uri:
+            exact: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}welcome
+      redirect:
+        uri: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}portal/shell/
+    - match:
+        - headers:
+            gateway-request:
+              exact: 'false'
+          uri:
+            exact: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}portal
+        - headers:
+            gateway-request:
+              exact: 'false'
+          uri:
+            exact: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}portal/shell
+        - headers:
+            gateway-request:
+              exact: 'false'
+          uri:
+            exact: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}portal/
+      redirect:
+        uri: {{ .Values.demis.virtualServices.portalShellRootRedirect.uri.prefix_exact | default "/"}}portal/shell/
+{{ end }}

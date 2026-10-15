@@ -1,0 +1,146 @@
+peerAuthenticationRules:
+  enabled: true
+
+demis:
+  enabled: true
+  virtualServices:
+    # Redirects old Endpoints to newer ones
+    portalShellRedirectEndpoints:
+      enabled: true
+      # The name of the Istio Gateway object to be used
+      # If the gateway is in another namespace, the namespace should be added as prefix to the name
+      # (e.g. mesh/demis-gateway)
+      istioGatewayName: demis-gateway
+      hosts:
+        ti:
+          - portal.ingress.local
+        internet:
+          - meldung.ingress.local
+      uri:
+        prefix_exact: {}
+        prefix_redirect: {}
+    # Redirects the requests to portal.<domain.name> to portal.<domain.name>/portal
+    portalShellRootRedirect:
+      enabled: true
+      # The name of the Istio Gateway object to be used
+      # If the gateway is in another namespace, the namespace should be added as prefix to the name
+      # (e.g. mesh/demis-gateway)
+      istioGatewayName: demis-gateway
+      hosts:
+        ti:
+          - portal.ingress.local
+        internet:
+          - meldung.ingress.local
+      uri:
+        prefix_exact: {}
+        prefix_redirect: {}
+
+idm:
+  enabled: true
+  envoyFilters:
+    # Only for KIND Local environmen
+    # Extracts the User Certificate from Header and adds it to 'x-forwared-client-cert-kind' Header
+    keycloakCertHeaderRewrite:
+      enabled: false
+
+mesh:
+  enabled: true
+
+  envoyFilters:
+    blockKomfortClientResponseMsg:
+      enabled: true
+    restrictedAccessResponseMsg:
+      enabled: false
+    # Sets the HTTP Request Header 'gateway-request' to 'true' if it comes from the Notification Gateway
+    portalGatewayRequestMapping:
+      enabled: true
+    # Allows Test User login to the Portal with Token Injection
+    portalWithTokenUrlFilter:
+      enabled: false
+      # The Name of the Header containing the User Certificate
+      # For KIND Cluster use: "x-forwarded-client-cert-kind"
+      certKey: "ssl-client-cert" 
+      # Internal address of the keycloak service
+      # This should be set to 'keycloak.<namespace>.svc.cluster.local' (without the port)
+      keycloakHostname: "keycloak.demis.svc.cluster.local"
+      # Address of the IDP Issuer URL
+      # This should be set to 'auth.<domain.name>'
+      issuerUrl: "keycloak.demis.svc.cluster.local:8080"
+      # User Certificate to be used for the injection
+      cert: ""
+    # Redirects the any "<domain>/fhir" GET Request to the address: https://fhir.gematik.de/demis
+    redirectToFhir:
+      enabled: true
+    # Removes sensitive headers from the response before sending it to the client
+    removeResponseHeaders:
+      enabled: true
+    # serves a html infopage if no context path is given
+    testBaseInfopage:
+      enabled: false
+
+  otlpGateway:
+    enabled: false
+    # The name of the Istio Gateway object to be created in the current namespace
+    name: otlp-gateway
+    credential: demis-istio-tls
+    # List of hosts requiring the TLS connection
+    hosts:
+      - otlp.ingress.local
+    otlpCollectorHost: otlp-collector.istio-system.svc.cluster.local
+    tlsTrafficPolicyMode: DISABLE
+
+  istioGateway:
+    # The name of the Istio Gateway object to be created in the current namespace
+    name: demis-gateway
+    mtls:
+      enabled: true
+      # The Secret containing the Server Certificate, Key and CA Chain Certificates for establishing Mutual TLS connections
+      credential: demis-istio-mutual-tls
+      # List of hosts requiring the mTLS connection
+      hosts:
+        - ingress.local
+    tls:
+      # The Secret containing the Server Certificate and Key for establishing TLS connections
+      credential: demis-istio-tls
+      # List of hosts requiring the TLS connection
+      hosts:
+        - auth.ingress.local
+        - portal.ingress.local
+        - meldung.ingress.local
+        - ti-idp.ingress.local
+        - bundid-idp.ingress.local
+        - storage.ingress.local
+  
+  # Configures Istio to use OpenTelemetry for tracing
+  telemetry: 
+    enabled: true
+    samplingPercentage: 100
+    # example:
+    #     additionalHeaderTags:
+    #      - name: content-type
+    #      - name: x-custom-header
+    #        defaultValue: custom-none // optional default is 'unknown'
+    customHeaderTags:
+      - name: content-type
+      - name: x-fhir-package-version
+      - name: x-fhir-package
+      - name: x-api-version
+
+  virtualServices:
+    # Forwards the GET Request to the given domain to the desired destination
+    rootRedirect:
+      enabled: true
+      hosts:
+        - ingress.local
+      redirect:
+        from: "/"
+        to: go.gematik.de/demis
+    # Enables the access to the remote S3 Storage Service
+    s3:
+      enabled: false
+      clusterHost: "storage.ingress.local"
+      remoteHost: "ingress.local"
+      remotePort: 9000
+      tlsCredentialSecret: adesso-s3-tls-secret
+      
+featureFlags: {}

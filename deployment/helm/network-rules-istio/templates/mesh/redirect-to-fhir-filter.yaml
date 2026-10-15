@@ -1,0 +1,40 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.envoyFilters.redirectToFhir.enabled true) }}
+{{/* Redirects the any "<domain>/fhir" GET Request to the address: https://fhir.gematik.de/demis */}}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: redirect-to-fhir-filter
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+              subFilter:
+                name: "envoy.filters.http.router"
+      patch:
+        operation: INSERT_FIRST
+        value:
+          name: envoy.lua
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+            inlineCode: |
+              function envoy_on_request(request_handle)
+                  local original_path = request_handle:headers():get(":path")
+                  local suffix = string.match(original_path, "^/fhir/(.*)")
+                  if suffix then
+                      local redirect_path = "https://fhir.gematik.de/demis/" .. suffix
+                      request_handle:respond({
+                          [":status"] = "301",
+                          ["location"] = redirect_path
+                      })
+                  end
+              end
+{{ end }}

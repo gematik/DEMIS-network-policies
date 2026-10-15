@@ -1,0 +1,22 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.telemetry.enabled true) }}
+# From https://istio.io/latest/docs/tasks/observability/distributed-tracing/sampling/#telemetry-api
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: istio-system
+spec:
+  tracing:
+  - providers:
+    - name: opentelemetry
+    randomSamplingPercentage: {{ .Values.mesh.telemetry.samplingPercentage | default 100 }}
+{{- if .Values.mesh.telemetry.customHeaderTags }}
+    customTags:
+{{- range .Values.mesh.telemetry.customHeaderTags }}
+      {{ .name }}:
+        header:
+          name: {{ .name }}
+          defaultValue: {{ .defaultValue | default "unknown" }}
+{{- end }}
+{{ end }}
+{{ end }}
