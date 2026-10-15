@@ -1,0 +1,36 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.envoyFilters.removeResponseHeaders.enabled true) }}
+{{/* Removes sensitive headers from the response before sending it to the client */}}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: remove-response-headers-filter
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+            server_header_transformation: PASS_THROUGH
+    - applyTo: ROUTE_CONFIGURATION
+      match:
+        context: GATEWAY
+      patch:
+        operation: MERGE
+        value:
+          response_headers_to_remove:
+            - "x-powered-by"
+            - "server"
+            - "x-envoy-upstream-service-time"
+{{ end }}

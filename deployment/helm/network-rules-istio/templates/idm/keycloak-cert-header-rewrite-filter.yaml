@@ -1,0 +1,112 @@
+{{- if and (eq .Values.idm.enabled true) (eq .Values.idm.envoyFilters.keycloakCertHeaderRewrite.enabled true) }}
+{{/* Extracts the User Certificate from Header and adds it to 'x-forwared-client-cert-kind' Header (for local) */}}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: keycloak-cert-header-rewrite
+  namespace: {{ .Release.Namespace }}
+spec:
+  workloadSelector:
+    labels:
+      app: keycloak
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.lua
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+            inlineCode: |
+              -- Constants for certificate patterns and header names
+              local CONSTANTS = {
+                CERT_START_PATTERN = 'CERTIFICATE-----',
+                CERT_END_PATTERN = '-----END',
+                HEADERS = {
+                  WAF = "x-ssl-client-cert",
+                  ISTIO = "x-forwarded-client-cert",
+                  KIND = "x-forwarded-client-cert-kind"
+                }
+              }
+
+              -- Helper function to check if a string is not empty
+              local function isNotEmpty(str)
+                return str ~= nil and string.len(str) > 0
+              end
+
+              -- Helper function to extract and clean certificate
+              local function extractAndCleanCertificate(certString)
+                if not isNotEmpty(certString) then
+                  return nil
+                end
+
+                local startPos = string.find(certString, CONSTANTS.CERT_START_PATTERN)
+                local endPos = string.find(certString, CONSTANTS.CERT_END_PATTERN)
+
+                if not startPos or not endPos then
+                  print("Invalid certificate format: missing start or end markers")
+                  return nil
+                end
+
+                -- Calculate positions
+                startPos = startPos + string.len(CONSTANTS.CERT_START_PATTERN)
+                endPos = endPos - 1
+
+                -- Extract and clean certificate
+                local cert = string.sub(certString, startPos, endPos)
+                return cert:gsub("%%0A", "")
+              end
+
+              -- Helper function to process certificate and update headers
+              local function processCertificate(headers, sourceHeader, sourceCert)
+                print(string.format("Processing certificate from '%s' Header", sourceHeader))
+                  
+                local cleanCert = extractAndCleanCertificate(sourceCert)
+                if cleanCert then
+                  headers:replace(CONSTANTS.HEADERS.KIND, cleanCert)
+                  print(string.format("Successfully processed certificate from %s", sourceHeader))
+                  return true
+                end
+                  
+                print(string.format("Failed to process certificate from %s", sourceHeader))
+                return false
+              end
+
+              -- Main request handling function
+              function envoy_on_request(request_handle)
+                local headers = request_handle:headers()
+                if not headers then
+                  print("Failed to access request headers")
+                  return
+                end
+
+                -- Get all relevant certificates
+                local INJECTED_CERTIFICATE = headers:get(CONSTANTS.HEADERS.KIND)
+                local WAF_CERTIFICATE = headers:get(CONSTANTS.HEADERS.WAF)
+                local INGRESS_CERTIFICATE = headers:get(CONSTANTS.HEADERS.ISTIO)
+
+                -- Process certificates in priority order
+                if isNotEmpty(INJECTED_CERTIFICATE) then
+                  print(string.format("Certificate already present in '%s' Header", CONSTANTS.HEADERS.KIND))
+                  return
+                end
+
+                if isNotEmpty(WAF_CERTIFICATE) then
+                  processCertificate(headers, CONSTANTS.HEADERS.WAF, WAF_CERTIFICATE)
+                  return
+                end
+
+                if isNotEmpty(INGRESS_CERTIFICATE) then
+                  processCertificate(headers, CONSTANTS.HEADERS.ISTIO, INGRESS_CERTIFICATE)
+                  return
+                end
+                  
+                print("No valid certificates found in headers")
+              end
+{{- end }}

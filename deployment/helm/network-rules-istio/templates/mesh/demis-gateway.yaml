@@ -1,0 +1,31 @@
+{{- if eq .Values.mesh.enabled true }}
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.mesh.istioGateway.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+    {{- if .Values.mesh.istioGateway.mtls.enabled }}
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: OPTIONAL_MUTUAL
+        credentialName: {{ .Values.mesh.istioGateway.mtls.credential }}
+      hosts:
+        {{- toYaml .Values.mesh.istioGateway.mtls.hosts | nindent 8 }}
+    {{- end }}
+    - port:
+        number: 443
+        name: https-admin
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.mesh.istioGateway.tls.credential }}
+      hosts:
+        {{- toYaml .Values.mesh.istioGateway.tls.hosts | nindent 8 }}
+{{ end }}

@@ -1,0 +1,14 @@
+{{- if and (eq .Values.idm.enabled true) (eq .Values.peerAuthenticationRules.enabled true) }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: keycloak-permissive
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: keycloak
+  mtls:
+    # Allow non-mTLS traffic to Keycloak (for acquiring certificates)
+    mode: PERMISSIVE
+{{ end }}

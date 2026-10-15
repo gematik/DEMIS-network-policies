@@ -1,0 +1,75 @@
+{{- if and (eq .Values.demis.enabled true) (eq .Values.demis.virtualServices.portalShellRedirectEndpoints.enabled true) }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: redirect-old-portal-to-new-endpoints
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+  {{- range concat .Values.demis.virtualServices.portalShellRedirectEndpoints.hosts.ti .Values.demis.virtualServices.portalShellRedirectEndpoints.hosts.internet | uniq }}
+    - {{ . }}
+  {{- end }}
+  gateways:
+    - {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.istioGatewayName }}
+  http:
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}quick-test-notification/A/A/melder-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}quick-test-notification/A/A/notified-person-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}quick-test-notification/A/A/diagnostic-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}notification-quickcheck/A/A/melder-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}disease-notification/A/A/meldende-einrichtung-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}pathogen-notification/A/A/melder-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}pathogen-notification/A/A/notified-person-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}pathogen-notification/A/A/select-pathogen-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}bed-occupancy/A/A/occupied-beds-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+  - match:
+    - uri:
+        exact: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_exact | default "/" }}bed-occupancy/A/A/meldende-einrichtung-form
+    redirect:
+      uri: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.uri.prefix_redirect | default "/" }}
+      redirectCode: 302
+{{ end }}

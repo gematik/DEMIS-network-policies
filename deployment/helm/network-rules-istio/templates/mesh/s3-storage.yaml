@@ -1,0 +1,54 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.virtualServices.s3.enabled true) }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: "s3-virtual-service-external"
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+    - {{ .Values.mesh.istioGateway.name }}
+  hosts:
+    - {{ .Values.mesh.virtualServices.s3.clusterHost }}
+  http:
+    - match:
+        - uri:
+            prefix: /
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.mesh.virtualServices.s3.remoteHost }}
+            port:
+              number: {{ .Values.mesh.virtualServices.s3.remotePort }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: "s3-service-entry"
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    - {{ .Values.mesh.virtualServices.s3.remoteHost }}
+  location: MESH_EXTERNAL
+  ports:
+    - name: https
+      number: {{ .Values.mesh.virtualServices.s3.remotePort }}
+      protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: "s3-destination-rule"
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: {{ .Values.mesh.virtualServices.s3.remoteHost }}
+  trafficPolicy:
+    tls:
+      credentialName: {{ .Values.mesh.virtualServices.s3.tlsCredentialSecret }}
+      insecureSkipVerify: false
+      mode: SIMPLE
+      sni: {{ .Values.mesh.virtualServices.s3.remoteHost }}
+      subjectAltNames:
+        - {{ .Values.mesh.virtualServices.s3.remoteHost }}
+{{- end }}

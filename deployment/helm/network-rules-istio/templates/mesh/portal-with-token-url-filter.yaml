@@ -1,0 +1,94 @@
+{{- if and (eq .Values.mesh.enabled true) (eq .Values.mesh.envoyFilters.portalWithTokenUrlFilter.enabled true) }}
+{{/* Allows Test User login to the Portal with Token Injection */}}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: portal-with-token-url-filter
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+              subFilter:
+                name: "envoy.filters.http.router"
+      patch:
+        operation: INSERT_FIRST
+        value:
+          name: envoy.lua
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+            inlineCode: |
+              function envoy_on_request(request_handle)
+                if request_handle:headers():get(":path") == "/withtoken" then
+                  local request_data = {
+                    grant_type = "password",
+                    client_id = "demis-test",
+                    username = "test-int",
+                    client_secret = "secret_client_secret"
+                  }
+
+                  -- Convert the Request Parameters in an URL-encoded String
+                  local url_encoded_data = {}
+                  for key, value in pairs(request_data) do
+                  table.insert(url_encoded_data, key .. "=" .. value)
+                  end
+                  local body_content = table.concat(url_encoded_data, "&")       
+
+                  local response_headers, internal_response = request_handle:httpCall(
+                  "outbound|8080||{{ .Values.mesh.envoyFilters.portalWithTokenUrlFilter.keycloakHostname }}",
+                    {
+                      [":method"] = "POST",
+                      [":path"] = "/realms/HOSPITAL/protocol/openid-connect/token",
+                      ["x-envoy-original-path"] = "/realms/HOSPITAL/protocol/openid-connect/token",
+                      ["content-type"] = "application/x-www-form-urlencoded",
+                      ["accept-encoding"] = "gzip, deflate, br",
+                      ["accept"] = "*/*",
+                      ["x-test"] = "ENVOY",
+                      ["strict-transport-security"] = "max-age=31536000; includeSubDomains; preload",
+                      ["user-agent"] = "envoy",
+                      ["cache-control"] = "no-cache",
+                      [":authority"] = "{{ .Values.mesh.envoyFilters.portalWithTokenUrlFilter.issuerUrl }}",
+                      ["{{ .Values.mesh.envoyFilters.portalWithTokenUrlFilter.certKey }}"] = "{{ .Values.mesh.envoyFilters.portalWithTokenUrlFilter.cert }}"
+                    },
+                      body_content,
+                      5000)
+
+                  local start_index = string.find(internal_response, 'access_token') + 15
+                  local end_index = string.find(internal_response, '","')
+                  local access_token = string.sub(internal_response, start_index, end_index - 1)
+                  local host = request_handle:headers():get("host")
+                  local html_code = [[
+                      <html>
+                      <head>
+                      <script>
+                      var redirectUrl = "https://]] .. host .. [[/portal/shell/welcome?inject_token=";
+                      var accessToken = "]] .. access_token .. [[";
+                      var redirectWithToken = redirectUrl + accessToken;
+                      window.location.href = redirectWithToken;
+                      </script>
+                      </head>
+                      <body>
+                      <p>Die Weiterleitung erfolgt automatisch...</p>
+                      </body>
+                      </html>
+                    ]]
+
+
+                  request_handle:respond(
+                    {
+                      [":status"] = "200",
+                      ["content-type"] = "text/html",
+                    },
+                    html_code
+                    )
+                end
+              end
+{{- end }}

@@ -1,0 +1,20 @@
+{{- if eq .Values.peerAuthenticationRules.enabled true }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: "default-mtls-communication"
+  namespace: {{ .Release.Namespace }}
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: "enable-mtls"
+spec:
+  host: "*.{{ .Release.Namespace }}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+{{- end }}

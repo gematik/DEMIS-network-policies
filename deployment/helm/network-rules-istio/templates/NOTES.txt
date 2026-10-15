@@ -1,0 +1,41 @@
+This Helm Chart creates different Istio Objects that shapes the traffic and defines the rules for establishing a network connection with the cluster services.
+
+The Rules are grouped by target, such as:
+
+- `mesh` contains all the Cluster-Wide Service Mesh configurations
+- `idm` contains specific rules for accessing the Identity Management services
+- `demis` contains specific rules for DEMIS services
+
+### Summary
+
+Peer Authentication Rules enabled: {{ .Values.peerAuthenticationRules.enabled }}
+
+{{- if eq .Values.mesh.enabled true }}
+
+### Mesh
+
+Mesh Block Komfort Client Filter: {{ .Values.mesh.envoyFilters.blockKomfortClientResponseMsg.enabled }}
+Mesh Restricted Access Filter: {{ .Values.mesh.envoyFilters.restrictedAccessResponseMsg.enabled }}
+Mesh Gateway Request Mapping Filter: {{ .Values.mesh.envoyFilters.portalGatewayRequestMapping.enabled }}
+Mesh Portal With Token Filter: {{ .Values.mesh.envoyFilters.portalWithTokenUrlFilter.enabled }}
+Mesh Redirect to FHIR Page Filter: {{ .Values.mesh.envoyFilters.redirectToFhir.enabled }}
+Mesh Remove Response Headers Filter: {{ .Values.mesh.envoyFilters.removeResponseHeaders.enabled }}
+Mesh Gateway Name: {{ .Values.mesh.istioGateway.name }}
+Mesh Gateway mTLS enabled: {{ .Values.mesh.istioGateway.mtls.enabled }}
+Mesh Root Redirect rule: {{ .Values.mesh.virtualServices.rootRedirect.enabled }}
+{{- end }}
+
+{{- if eq .Values.idm.enabled true }}
+
+### IDM
+
+Keycloak Rewrite Certificate Header Filter for KIND: {{ .Values.idm.envoyFilters.keycloakCertHeaderRewrite.enabled }}
+{{- end }}
+
+{{- if eq .Values.demis.enabled true }}
+
+### DEMIS
+
+Portal Shell Redirect Endpoints: {{ .Values.demis.virtualServices.portalShellRedirectEndpoints.enabled }}
+Redirect Root Path to Portal Shell: {{ .Values.demis.virtualServices.portalShellRootRedirect.enabled }}
+{{- end }}
